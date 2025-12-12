@@ -7,5 +7,7 @@ scripts/quickjspp
 scripts/yaml-cpp
 .DS_Store
 src/.DS_Store
+.cache
+compile_commands.json
 
 build
