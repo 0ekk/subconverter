@@ -11,6 +11,7 @@
 #include "utils/urlencode.h"
 #include "utils/yamlcpp_extra.h"
 #include "config/proxy.h"
+#include "generator/config/nodemanip.h"
 #include "subparser.h"
 #include "utils/logger.h"
 
@@ -3297,6 +3298,30 @@ void explode(const std::string &link, Proxy &node) {
         explodeHTTPSub(link, node);
 }
 
+void explodeSubLink(std::string link, std::vector<Proxy> &nodes) {
+    link.erase(0, 6);
+    if (!(startsWith(link, "http://") || startsWith(link, "https://"))) {
+        link = urlSafeBase64Decode(link);
+    }
+
+    std::string proxy, subInfo;
+    string_array exclude_remarks, include_remarks;
+    RegexMatchConfigs stream_rules, time_rules;
+
+    parse_settings settings;
+    settings.proxy = &proxy;
+    settings.sub_info = &subInfo;
+    settings.exclude_remarks = &exclude_remarks;
+    settings.include_remarks = &include_remarks;
+    settings.stream_rules = &stream_rules;
+    settings.time_rules = &time_rules;
+    settings.authorized = false;
+
+    if (addNodes(link, nodes, 0, settings) == -1) {
+        writeLog(0, "The following link doesn't contain any valid node info: " + link, LOG_LEVEL_WARNING);
+    }
+}
+
 void explodeSub(std::string sub, std::vector<Proxy> &nodes) {
     std::stringstream strstream;
     std::string strLink;
@@ -3368,8 +3393,14 @@ void explodeSub(std::string sub, std::vector<Proxy> &nodes) {
             Proxy node;
             if (strLink.rfind('\r') != std::string::npos)
                 strLink.erase(strLink.size() - 1);
+            if (strLink.empty())
+                continue;
+            if (strFind(strLink, "sub://")) {
+                explodeSubLink(strLink, nodes);
+                continue;
+            }
             explode(strLink, node);
-            if (strLink.empty() || node.Type == ProxyType::Unknown) {
+            if (node.Type == ProxyType::Unknown) {
                 continue;
             }
             nodes.emplace_back(std::move(node));
