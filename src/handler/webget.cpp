@@ -4,6 +4,11 @@
 //#include <mutex>
 #include <thread>
 #include <atomic>
+#include <cstring>
+
+#ifdef _WIN32
+#define strcasecmp _stricmp
+#endif
 
 #include <curl/curl.h>
 
@@ -172,11 +177,21 @@ static int curlGet(const FetchArgument &argument, FetchResult &result)
     {
         for(auto &x : *argument.request_headers)
         {
+            // Skip User-Agent as it will be set via CURLOPT_USERAGENT
+            if(strcasecmp(x.first.c_str(), "User-Agent") == 0)
+                continue;
             auto header = x.first + ": " + x.second;
             header_list = curl_slist_append(header_list, header.data());
         }
-        if(!argument.request_headers->contains("User-Agent"))
+        auto ua_it = argument.request_headers->find("User-Agent");
+        if(ua_it != argument.request_headers->end())
+            curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, ua_it->second.c_str());
+        else
             curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, user_agent_str);
+    }
+    else
+    {
+        curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, user_agent_str);
     }
     header_list = curl_slist_append(header_list, "SubConverter-Request: 1");
     header_list = curl_slist_append(header_list, "SubConverter-Version: " VERSION);
