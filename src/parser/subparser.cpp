@@ -19,6 +19,52 @@ using namespace rapidjson;
 using namespace rapidjson_ext;
 using namespace YAML;
 
+namespace {
+void readTriboolOption(const YAML::Node &node, const std::string &key, tribool &dest) {
+    if (node[key].IsDefined())
+        dest.set(safe_as<std::string>(node[key]));
+}
+
+Proxy::XHTTPOptions parseClashXHTTPOptions(const YAML::Node &opts) {
+    Proxy::XHTTPOptions xhttp;
+    if (!opts.IsDefined())
+        return xhttp;
+
+    opts["mode"] >>= xhttp.Mode;
+    opts["x-padding-bytes"] >>= xhttp.XPaddingBytes;
+    readTriboolOption(opts, "no-grpc-header", xhttp.NoGRPCHeader);
+    readTriboolOption(opts, "no-sse-header", xhttp.NoSSEHeader);
+    opts["sc-max-each-post-bytes"] >>= xhttp.ScMaxEachPostBytes;
+    opts["sc-min-posts-interval-ms"] >>= xhttp.ScMinPostsIntervalMs;
+    opts["sc-stream-up-server-secs"] >>= xhttp.ScStreamUpServerSecs;
+    opts["xmux"]["max-concurrency"] >>= xhttp.XmuxMaxConcurrency;
+    opts["xmux"]["max-connections"] >>= xhttp.XmuxMaxConnections;
+    opts["xmux"]["c-max-reuse-times"] >>= xhttp.XmuxCMaxReuseTimes;
+    opts["xmux"]["h-max-request-times"] >>= xhttp.XmuxHMaxRequestTimes;
+    opts["xmux"]["h-max-reusable-secs"] >>= xhttp.XmuxHMaxReusableSecs;
+    opts["xmux"]["h-keep-alive-period"] >>= xhttp.XmuxHKeepAlivePeriod;
+    return xhttp;
+}
+
+Proxy::XHTTPOptions parseUrlXHTTPOptions(const std::string &addition) {
+    Proxy::XHTTPOptions xhttp;
+    xhttp.Mode = getUrlArg(addition, "mode");
+    xhttp.XPaddingBytes = getUrlArg(addition, "x-padding-bytes");
+    xhttp.NoGRPCHeader.set(getUrlArg(addition, "no-grpc-header"));
+    xhttp.NoSSEHeader.set(getUrlArg(addition, "no-sse-header"));
+    xhttp.ScMaxEachPostBytes = getUrlArg(addition, "sc-max-each-post-bytes");
+    xhttp.ScMinPostsIntervalMs = getUrlArg(addition, "sc-min-posts-interval-ms");
+    xhttp.ScStreamUpServerSecs = getUrlArg(addition, "sc-stream-up-server-secs");
+    xhttp.XmuxMaxConcurrency = getUrlArg(addition, "xmux-max-concurrency");
+    xhttp.XmuxMaxConnections = getUrlArg(addition, "xmux-max-connections");
+    xhttp.XmuxCMaxReuseTimes = getUrlArg(addition, "xmux-c-max-reuse-times");
+    xhttp.XmuxHMaxRequestTimes = getUrlArg(addition, "xmux-h-max-request-times");
+    xhttp.XmuxHMaxReusableSecs = getUrlArg(addition, "xmux-h-max-reusable-secs");
+    xhttp.XmuxHKeepAlivePeriod = getUrlArg(addition, "xmux-h-keep-alive-period");
+    return xhttp;
+}
+}
+
 string_array ss_ciphers = {
     "rc4-md5", "aes-128-gcm", "aes-192-gcm", "aes-256-gcm", "aes-128-cfb", "aes-192-cfb",
     "aes-256-cfb", "aes-128-ctr", "aes-192-ctr", "aes-256-ctr", "camellia-128-cfb",
@@ -1205,6 +1251,7 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes) {
         tribool udp, tfo, scv;
         bool reduceRtt, disableSni; //tuic
         std::vector<std::string> alpnList;
+        Proxy::XHTTPOptions xhttpOptions;
         Proxy node;
         singleproxy = yamlnode[section][i];
         singleproxy["type"] >>= proxytype;
@@ -1463,6 +1510,12 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes) {
                         singleproxy["h2-opts"]["host"][0] >>= host;
                         edge.clear();
                         break;
+                    case "xhttp"_hash:
+                        singleproxy["xhttp-opts"]["path"] >>= path;
+                        singleproxy["xhttp-opts"]["host"] >>= host;
+                        xhttpOptions = parseClashXHTTPOptions(singleproxy["xhttp-opts"]);
+                        edge.clear();
+                        break;
                     case "grpc"_hash:
                         singleproxy["servername"] >>= host;
                         singleproxy["grpc-opts"]["grpc-service-name"] >>= path;
@@ -1491,6 +1544,7 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes) {
                 vlessConstruct(node, XRAY_DEFAULT_GROUP, ps, server, port, type, id, aid, net, "auto", flow, mode,
                                path, host, "", tls, pbk, sid, fp, sni, alpnList, packet_encoding, encryption, udp,
                                tribool(), tribool(), tribool(), underlying_proxy, v2ray_http_upgrade);
+                node.XHTTP = xhttpOptions;
                 break;
             case "hysteria"_hash:
                 group = HYSTERIA_DEFAULT_GROUP;
@@ -1832,7 +1886,6 @@ void explodeStdVless(std::string vless, Proxy &node) {
             path = getUrlArg(addition, "path");
             break;
         case "xhttp"_hash: // 新增对 type=xhttp 的支持
-            net = "h2"; // 视为 h2/http2 传输
             type = getUrlArg(addition, "headerType");
             host = getUrlArg(addition, strFind(addition, "sni") ? "sni" : "host");
             path = getUrlArg(addition, "path");
@@ -1856,6 +1909,8 @@ void explodeStdVless(std::string vless, Proxy &node) {
     sni = getUrlArg(addition, "sni");
     vlessConstruct(node, XRAY_DEFAULT_GROUP, remarks, add, port, type, id, aid, net, "auto", flow, mode, path, host, "",
                    tls, pbk, sid, fp, sni, alpnList, packet_encoding, encryption);
+    if (net == "xhttp")
+        node.XHTTP = parseUrlXHTTPOptions(addition);
     return;
 }
 

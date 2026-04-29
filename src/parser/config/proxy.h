@@ -147,6 +147,33 @@ struct Proxy {
     String PacketEncoding;
     String Multiplexing;
     tribool V2rayHttpUpgrade;
+
+    struct XHTTPOptions {
+        String Mode;
+        String XPaddingBytes;
+        tribool NoGRPCHeader;
+        tribool NoSSEHeader;
+        String ScMaxEachPostBytes;
+        String ScMinPostsIntervalMs;
+        String ScStreamUpServerSecs;
+        String XmuxMaxConcurrency;
+        String XmuxMaxConnections;
+        String XmuxCMaxReuseTimes;
+        String XmuxHMaxRequestTimes;
+        String XmuxHMaxReusableSecs;
+        String XmuxHKeepAlivePeriod;
+
+        bool hasXmux() const {
+            return !XmuxMaxConcurrency.empty() || !XmuxMaxConnections.empty() || !XmuxCMaxReuseTimes.empty() ||
+                   !XmuxHMaxRequestTimes.empty() || !XmuxHMaxReusableSecs.empty() || !XmuxHKeepAlivePeriod.empty();
+        }
+
+        bool hasOptions() const {
+            return !Mode.empty() || !XPaddingBytes.empty() || !NoGRPCHeader.is_undef() || !NoSSEHeader.is_undef() ||
+                   !ScMaxEachPostBytes.empty() || !ScMinPostsIntervalMs.empty() || !ScStreamUpServerSecs.empty() ||
+                   hasXmux();
+        }
+    } XHTTP;
 };
 
 #define SS_DEFAULT_GROUP "SSProvider"

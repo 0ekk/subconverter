@@ -37,6 +37,42 @@ const string_array clash_ssr_ciphers = {
     "rc4-md5", "aes-128-ctr", "aes-192-ctr", "aes-256-ctr", "aes-128-cfb",
     "aes-192-cfb", "aes-256-cfb", "chacha20-ietf", "xchacha20", "none"
 };
+
+namespace {
+void setXHTTPOption(YAML::Node &opts, const std::string &key, const std::string &value) {
+    if (!value.empty())
+        opts[key] = value;
+}
+
+void setXHTTPOption(YAML::Node &opts, const std::string &key, const tribool &value) {
+    if (!value.is_undef())
+        opts[key] = value.get();
+}
+
+void addXHTTPOptions(YAML::Node &singleproxy, const Proxy &proxy) {
+    YAML::Node opts = singleproxy["xhttp-opts"];
+    opts["path"] = proxy.Path;
+    setXHTTPOption(opts, "mode", proxy.XHTTP.Mode);
+    setXHTTPOption(opts, "x-padding-bytes", proxy.XHTTP.XPaddingBytes);
+    setXHTTPOption(opts, "no-grpc-header", proxy.XHTTP.NoGRPCHeader);
+    setXHTTPOption(opts, "no-sse-header", proxy.XHTTP.NoSSEHeader);
+    setXHTTPOption(opts, "sc-max-each-post-bytes", proxy.XHTTP.ScMaxEachPostBytes);
+    setXHTTPOption(opts, "sc-min-posts-interval-ms", proxy.XHTTP.ScMinPostsIntervalMs);
+    setXHTTPOption(opts, "sc-stream-up-server-secs", proxy.XHTTP.ScStreamUpServerSecs);
+    if (proxy.XHTTP.hasXmux()) {
+        YAML::Node xmux = opts["xmux"];
+        setXHTTPOption(xmux, "max-concurrency", proxy.XHTTP.XmuxMaxConcurrency);
+        setXHTTPOption(xmux, "max-connections", proxy.XHTTP.XmuxMaxConnections);
+        setXHTTPOption(xmux, "c-max-reuse-times", proxy.XHTTP.XmuxCMaxReuseTimes);
+        setXHTTPOption(xmux, "h-max-request-times", proxy.XHTTP.XmuxHMaxRequestTimes);
+        setXHTTPOption(xmux, "h-max-reusable-secs", proxy.XHTTP.XmuxHMaxReusableSecs);
+        setXHTTPOption(xmux, "h-keep-alive-period", proxy.XHTTP.XmuxHKeepAlivePeriod);
+    }
+    if (!proxy.Host.empty())
+        opts["host"] = proxy.Host;
+}
+}
+
 bool isNumeric(const std::string &str) {
     for (char c: str) {
         if (!std::isdigit(static_cast<unsigned char>(c))) {
@@ -687,6 +723,10 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                         singleproxy["h2-opts"]["path"] = x.Path;
                         if (!x.Host.empty())
                             singleproxy["h2-opts"]["host"].push_back(x.Host);
+                        break;
+                    case "xhttp"_hash:
+                        singleproxy["network"] = x.TransferProtocol;
+                        addXHTTPOptions(singleproxy, x);
                         break;
                     case "grpc"_hash:
                         singleproxy["network"] = x.TransferProtocol;
