@@ -2617,6 +2617,39 @@ static void addHeaders(rapidjson::Value &transport, const Proxy &x,
     transport.AddMember("headers", headers, allocator);
 }
 
+static void addSingBoxXHTTPOption(rapidjson::Value &transport, const rapidjson::GenericStringRef<rapidjson::Value::Ch> &key,
+                                  const std::string &value, rapidjson::MemoryPoolAllocator<> &allocator) {
+    if (!value.empty())
+        transport.AddMember(key, rapidjson::StringRef(value.c_str()), allocator);
+}
+
+static void addSingBoxXHTTPOption(rapidjson::Value &transport, const rapidjson::GenericStringRef<rapidjson::Value::Ch> &key,
+                                  const tribool &value, rapidjson::MemoryPoolAllocator<> &allocator) {
+    if (!value.is_undef())
+        transport.AddMember(key, value.get(), allocator);
+}
+
+static void addSingBoxXHTTPOptions(rapidjson::Value &transport, const Proxy::XHTTPOptions &xhttp,
+                                   rapidjson::MemoryPoolAllocator<> &allocator) {
+    addSingBoxXHTTPOption(transport, "mode", xhttp.Mode, allocator);
+    addSingBoxXHTTPOption(transport, "x_padding_bytes", xhttp.XPaddingBytes, allocator);
+    addSingBoxXHTTPOption(transport, "no_grpc_header", xhttp.NoGRPCHeader, allocator);
+    addSingBoxXHTTPOption(transport, "no_sse_header", xhttp.NoSSEHeader, allocator);
+    addSingBoxXHTTPOption(transport, "sc_max_each_post_bytes", xhttp.ScMaxEachPostBytes, allocator);
+    addSingBoxXHTTPOption(transport, "sc_min_posts_interval_ms", xhttp.ScMinPostsIntervalMs, allocator);
+    addSingBoxXHTTPOption(transport, "sc_stream_up_server_secs", xhttp.ScStreamUpServerSecs, allocator);
+    if (xhttp.hasXmux()) {
+        rapidjson::Value xmux(rapidjson::kObjectType);
+        addSingBoxXHTTPOption(xmux, "max_concurrency", xhttp.XmuxMaxConcurrency, allocator);
+        addSingBoxXHTTPOption(xmux, "max_connections", xhttp.XmuxMaxConnections, allocator);
+        addSingBoxXHTTPOption(xmux, "c_max_reuse_times", xhttp.XmuxCMaxReuseTimes, allocator);
+        addSingBoxXHTTPOption(xmux, "h_max_request_times", xhttp.XmuxHMaxRequestTimes, allocator);
+        addSingBoxXHTTPOption(xmux, "h_max_reusable_secs", xhttp.XmuxHMaxReusableSecs, allocator);
+        addSingBoxXHTTPOption(xmux, "h_keep_alive_period", xhttp.XmuxHKeepAlivePeriod, allocator);
+        transport.AddMember("xmux", xmux, allocator);
+    }
+}
+
 static rapidjson::Value stringArrayToJsonArray(const std::string &array, const std::string &delimiter,
                                                rapidjson::MemoryPoolAllocator<> &allocator) {
     rapidjson::Value result(rapidjson::kArrayType);
@@ -2755,6 +2788,18 @@ proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json,
                         vlesstransport.AddMember("type", rapidjson::StringRef("grpc"), allocator);
                         vlesstransport.AddMember("service_name", rapidjson::StringRef(x.GRPCServiceName.c_str()),
                                                  allocator);
+                        proxy.AddMember("transport", vlesstransport, allocator);
+                        break;
+                    case "xhttp"_hash:
+                        vlesstransport.AddMember("type", rapidjson::StringRef("xhttp"), allocator);
+                        if (x.Path.empty())
+                            vlesstransport.AddMember("path", "/", allocator);
+                        else
+                            vlesstransport.AddMember("path", rapidjson::StringRef(x.Path.c_str()), allocator);
+                        if (!x.Host.empty())
+                            vlesstransport.AddMember("host", rapidjson::StringRef(x.Host.c_str()), allocator);
+                        addHeaders(vlesstransport, x, allocator);
+                        addSingBoxXHTTPOptions(vlesstransport, x.XHTTP, allocator);
                         proxy.AddMember("transport", vlesstransport, allocator);
                         break;
                     default:
