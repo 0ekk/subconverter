@@ -132,6 +132,8 @@ void explodeHysteria2(std::string hysteria2, Proxy &node);
 
 void explodeAnyTLS(std::string anytls, Proxy &node);
 
+void explodeWireGuard(std::string wg, Proxy &node);
+
 /// Parse a link
 void explode(const std::string &link, Proxy &node);
 

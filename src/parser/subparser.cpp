@@ -3322,6 +3322,90 @@ void explodeAnyTLS(std::string anytls, Proxy &node) {
                     tribool(), "", 30, 30, 0);
 }
 
+void explodeWireGuard(std::string wg, Proxy &node) {
+    std::string add, port, remarks, addition;
+    std::string selfIp, selfIpv6, privKey, pubKey, psk, mtu, keepalive, reserved;
+    string_array dns;
+
+    wg.erase(0, wg.find("://") + 3);
+    string_size pos;
+
+    pos = wg.rfind("#");
+    if (pos != std::string::npos) {
+        remarks = urlDecode(wg.substr(pos + 1));
+        wg.erase(pos);
+    }
+
+    pos = wg.rfind("?");
+    if (pos != std::string::npos) {
+        addition = wg.substr(pos + 1);
+        wg.erase(pos);
+    }
+
+    pos = wg.rfind("@");
+    if (pos != std::string::npos) {
+        privKey = urlDecode(wg.substr(0, pos));
+        wg.erase(0, pos + 1);
+    }
+
+    pos = wg.rfind(":");
+    if (pos != std::string::npos) {
+        add = wg.substr(0, pos);
+        port = wg.substr(pos + 1);
+    } else {
+        add = wg;
+    }
+
+    if (add.length() > 2 && add.front() == '[' && add.back() == ']')
+        add = add.substr(1, add.length() - 2);
+
+    if (privKey.empty())
+        privKey = urlDecode(getUrlArg(addition, "privatekey"));
+    pubKey = urlDecode(getUrlArg(addition, "publickey"));
+    if (pubKey.empty())
+        pubKey = urlDecode(getUrlArg(addition, "public_key"));
+    psk = urlDecode(getUrlArg(addition, "presharedkey"));
+    if (psk.empty())
+        psk = urlDecode(getUrlArg(addition, "pre_shared_key"));
+    mtu = getUrlArg(addition, "mtu");
+    keepalive = getUrlArg(addition, "keepalive");
+    if (keepalive.empty())
+        keepalive = getUrlArg(addition, "persistent_keepalive");
+    reserved = urlDecode(getUrlArg(addition, "reserved"));
+
+    // addresses: "address" (or "ip") holds a comma separated list of v4/v6 addresses
+    std::string address = urlDecode(getUrlArg(addition, "address"));
+    if (address.empty())
+        address = urlDecode(getUrlArg(addition, "ip"));
+    for (auto &item: split(address, ",")) {
+        std::string ip = trim(item);
+        if (ip.empty())
+            continue;
+        auto slash = ip.find("/"); // drop the CIDR prefix length, clients expect a bare address
+        if (slash != std::string::npos)
+            ip.erase(slash);
+        if (strFind(ip, ":")) {
+            if (selfIpv6.empty())
+                selfIpv6 = ip;
+        } else if (selfIp.empty())
+            selfIp = ip;
+    }
+
+    for (auto &item: split(urlDecode(getUrlArg(addition, "dns")), ",")) {
+        std::string server = trim(item);
+        if (!server.empty())
+            dns.emplace_back(server);
+    }
+
+    if (port.empty())
+        port = "51820";
+    if (remarks.empty())
+        remarks = add + ":" + port;
+
+    wireguardConstruct(node, WG_DEFAULT_GROUP, remarks, add, port, selfIp, selfIpv6, privKey, pubKey, psk, dns, mtu,
+                       keepalive, "", reserved, tribool(), "");
+}
+
 void explode(const std::string &link, Proxy &node) {
     if (startsWith(link, "ssr://"))
         explodeSSR(link, node);
@@ -3349,6 +3433,8 @@ void explode(const std::string &link, Proxy &node) {
         explodeHysteria2(link, node);
     else if (strFind(link, "mierus://") || strFind(link, "mieru://"))
         explodeMierus(link, node);
+    else if (startsWith(link, "wireguard://") || startsWith(link, "wg://"))
+        explodeWireGuard(link, node);
     else if (isLink(link))
         explodeHTTPSub(link, node);
 }
