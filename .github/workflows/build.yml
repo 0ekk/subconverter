@@ -57,8 +57,6 @@ jobs:
           build-args: |
             SHA=${{ steps.vars.outputs.sha_short }}
           outputs: type=local,dest=out
-          cache-from: type=gha,scope=static-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=static-${{ matrix.arch }}
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
