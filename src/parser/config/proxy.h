@@ -1,6 +1,7 @@
 #ifndef PROXY_H_INCLUDED
 #define PROXY_H_INCLUDED
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,7 @@
 
 using String = std::string;
 using StringArray = std::vector<String>;
+using StringMap = std::map<String, String>;
 
 enum class ProxyType
 {
@@ -149,7 +151,7 @@ struct Proxy {
     String Multiplexing;
     tribool V2rayHttpUpgrade;
 
-    struct XHTTPOptions {
+    struct XHTTPConfig {
         String Mode;
         String XPaddingBytes;
         tribool NoGRPCHeader;
@@ -175,6 +177,9 @@ struct Proxy {
                    hasXmux();
         }
     } XHTTP;
+
+    // flat xhttp-opts passthrough, keeps keys this struct does not model
+    StringMap XHTTPOptions;
 };
 
 #define SS_DEFAULT_GROUP "SSProvider"
