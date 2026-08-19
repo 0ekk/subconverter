@@ -58,19 +58,25 @@ subscription body.
 
 ## How fields map to each target
 
-| Field | Clash | Surge (>= 4) | Quantumult X | sing-box |
-|-------|-------|--------------|--------------|----------|
-| address v4 | `ip` | `self-ip` | `interface-ip` | `local_address` / `inet4_bind_address` |
-| address v6 | `ipv6` | `self-ip-v6` | `interface-ipv6` | `inet6_bind_address` |
+| Field | Clash / mihomo | Surge (>= 4) | Quantumult X | sing-box |
+|-------|----------------|--------------|--------------|----------|
+| address v4 | `ip` | `self-ip` | `interface-ip` | `address` (as `/32`) |
+| address v6 | `ipv6` | `self-ip-v6` | `interface-ipv6` | `address` (as `/128`) |
 | private key | `private-key` | `private-key` | `private-key` | `private_key` |
 | public key | `public-key` | peer `public-key` | peer `public-key` | peer `public_key` |
-| preshared key | `preshared-key` | `preshared-key` | — | peer `pre_shared_key` |
-| dns | `dns` | `dns-server` | `dns` / `dnsv6` | — |
+| preshared key | `pre-shared-key` | `preshared-key` | — | peer `pre_shared_key` |
+| dns | `dns` + `remote-dns-resolve` | `dns-server` | `dns` / `dnsv6` | — |
 | mtu | `mtu` | `mtu` | `mtu` | `mtu` |
-| keepalive | — | `keepalive` | `keepalive` | — |
-| reserved | — | peer `client-id` / `reserved` | peer `reserved` | peer `reserved` |
+| keepalive | `persistent-keepalive` | `keepalive` | `keepalive` | peer `persistent_keepalive_interval` |
+| reserved | `reserved` | peer `client-id` / `reserved` | peer `reserved` | peer `reserved` |
+| allowed ips | `allowed-ips` | peer `allowed-ips` | — | peer `allowed_ips` |
 
 Notes:
 
 - Surge emits WireGuard only for Surge 4 and above; older targets skip the node.
 - `allowed-ips` is not part of the link format; it defaults to `0.0.0.0/0, ::/0`.
+- sing-box removed the WireGuard outbound in 1.13, so nodes are emitted into the
+  top-level `endpoints` array instead of `outbounds`. Proxy groups reference them
+  by tag exactly like an outbound.
+- mihomo only uses `dns` when `remote-dns-resolve` is true, so it is set whenever
+  the link carries DNS servers.

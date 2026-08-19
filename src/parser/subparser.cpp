@@ -300,7 +300,8 @@ void vlessConstruct(Proxy &node, const std::string &group, const std::string &re
     node.EncryptMethod = cipher;
     node.TransferProtocol = net.empty() ? "tcp" : type == "http" ? "http" : net;
     node.Edge = edge;
-    node.Flow = flow;
+    // Xray only kept the vision flows, the older xtls-rprx-* ones were removed
+    node.Flow = startsWith(flow, "xtls-rprx-vision") ? flow : "";
     node.Encryption = encryption;
     node.FakeType = type;
     node.TLSSecure = tls == "tls" || tls == "xtls" || tls == "reality";
@@ -310,7 +311,7 @@ void vlessConstruct(Proxy &node, const std::string &group, const std::string &re
     node.ServerName = sni;
     node.AlpnList = alpnList;
     node.PacketEncoding = packet_encoding;
-    node.TLSStr = tls;
+    node.TLSStr = tls == "xtls" ? "tls" : tls; // security=xtls was removed by Xray
     switch (hash_(net)) {
         case "grpc"_hash:
             node.Host = host;
@@ -1239,7 +1240,7 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes) {
         std::string protocol, protoparam, obfs, obfsparam; //ssr
         std::string flow, mode; //trojan
         std::string user; //socks
-        std::string ip, ipv6, private_key, public_key, mtu; //wireguard
+        std::string ip, ipv6, private_key, public_key, mtu, reserved, allowed_ips, keepalive; //wireguard
         std::string auth, up, down, obfsParam, insecure, alpn; //hysteria
         std::string obfsPassword; //hysteria2
         std::string congestion_control, udp_relay_mode, token; // tuic
@@ -1459,12 +1460,28 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes) {
                 singleproxy["private-key"] >>= private_key;
                 singleproxy["dns"] >>= dns_server;
                 singleproxy["mtu"] >>= mtu;
-                singleproxy["preshared-key"] >>= password;
+                singleproxy["preshared-key"] >>= password; // legacy key name, mihomo uses pre-shared-key
+                singleproxy["pre-shared-key"] >>= password;
                 singleproxy["ip"] >>= ip;
                 singleproxy["ipv6"] >>= ipv6;
+                singleproxy["persistent-keepalive"] >>= keepalive;
+                if (singleproxy["reserved"].IsSequence()) {
+                    string_array reserved_list;
+                    singleproxy["reserved"] >>= reserved_list;
+                    reserved = join(reserved_list, ",");
+                } else
+                    singleproxy["reserved"] >>= reserved;
+                if (singleproxy["allowed-ips"].IsSequence()) {
+                    string_array allowed_list;
+                    singleproxy["allowed-ips"] >>= allowed_list;
+                    allowed_ips = join(allowed_list, ",");
+                }
 
                 wireguardConstruct(node, group, ps, server, port, ip, ipv6, private_key, public_key, password,
-                                   dns_server, mtu, "0", "", "", udp, underlying_proxy);
+                                   dns_server, mtu, keepalive.empty() ? "0" : keepalive, "", reserved, udp,
+                                   underlying_proxy);
+                if (!allowed_ips.empty())
+                    node.AllowedIPs = allowed_ips;
                 break;
             case "vless"_hash:
                 group = XRAY_DEFAULT_GROUP;
@@ -1866,6 +1883,8 @@ void explodeStdVless(std::string vless, Proxy &node) {
 
     tls = getUrlArg(addition, "security");
     net = getUrlArg(addition, "type");
+    if (net == "splithttp") // renamed to xhttp by Xray
+        net = "xhttp";
     flow = getUrlArg(addition, "flow");
     pbk = getUrlArg(addition, "pbk");
     sid = getUrlArg(addition, "sid");
