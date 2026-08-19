@@ -705,7 +705,7 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 if (!x.ShortId.empty()) {
                     singleproxy["reality-opts"]["short-id"] = "" + x.ShortId;
                 }
-                if (!x.PublicKey.empty() || x.Flow == "xtls-rprx-vision") {
+                if (!x.PublicKey.empty() || startsWith(x.Flow, "xtls-rprx-vision")) {
                     singleproxy["client-fingerprint"] = "chrome";
                 }
                 if (!x.Fingerprint.empty()) {
@@ -2804,13 +2804,12 @@ proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json,
                 proxy.AddMember("uuid", rapidjson::StringRef(x.UserId.c_str()), allocator);
                 if (!x.Encryption.empty() && x.Encryption != "none")
                     proxy.AddMember("encryption", rapidjson::StringRef(x.Encryption.c_str()), allocator);
-                if (xudp && udp)
-                    proxy.AddMember("packet_encoding", rapidjson::StringRef("xudp"), allocator);
-                if (!x.Flow.empty())
-                    proxy.AddMember("flow", rapidjson::StringRef(x.Flow.c_str()), allocator);
-                if (!x.PacketEncoding.empty()) {
+                if (!x.PacketEncoding.empty())
                     proxy.AddMember("packet_encoding", rapidjson::StringRef(x.PacketEncoding.c_str()), allocator);
-                }
+                else if (xudp && udp)
+                    proxy.AddMember("packet_encoding", rapidjson::StringRef("xudp"), allocator);
+                if (!x.Flow.empty()) // sing-box only knows the plain vision flow
+                    proxy.AddMember("flow", rapidjson::StringRef("xtls-rprx-vision"), allocator);
                 rapidjson::Value vlesstransport(rapidjson::kObjectType);
                 rapidjson::Value vlessheaders(rapidjson::kObjectType);
                 switch (hash_(x.TransferProtocol)) {
@@ -3096,12 +3095,21 @@ proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json,
             }
             tls.AddMember("insecure", buildBooleanValue(scv), allocator);
             if (x.Type == ProxyType::VLESS) {
-                rapidjson::Value reality(rapidjson::kObjectType);
-                if (!x.PublicKey.empty() || !x.ShortId.empty()) {
+                static const string_array utls_fingerprints = {"chrome", "firefox", "edge", "safari", "360", "qq",
+                                                               "ios", "android", "random", "randomized"};
+                bool has_reality = !x.PublicKey.empty() || !x.ShortId.empty();
+                bool known_fingerprint = std::find(utls_fingerprints.begin(), utls_fingerprints.end(),
+                                                   x.Fingerprint) != utls_fingerprints.end();
+                if (has_reality || known_fingerprint) {
                     rapidjson::Value utls(rapidjson::kObjectType);
                     utls.AddMember("enabled", true, allocator);
-                    utls.AddMember("fingerprint", rapidjson::StringRef("chrome"), allocator);
+                    utls.AddMember("fingerprint", known_fingerprint
+                                                      ? rapidjson::Value(rapidjson::StringRef(x.Fingerprint.c_str()))
+                                                      : rapidjson::Value(rapidjson::StringRef("chrome")), allocator);
                     tls.AddMember("utls", utls, allocator);
+                }
+                rapidjson::Value reality(rapidjson::kObjectType);
+                if (has_reality) {
                     reality.AddMember("enabled", true, allocator);
                     if (!x.PublicKey.empty()) {
                         reality.AddMember("public_key", rapidjson::StringRef(x.PublicKey.c_str()), allocator);
