@@ -1,0 +1,20 @@
+# Static release binaries, built with buildx so one image is produced per target
+# platform. The dependency layer is separate from the source copy on purpose: it
+# dominates the build time and buildx can then reuse it across runs.
+FROM alpine:3.16 AS builder
+ARG SHA=""
+
+RUN apk add --no-cache bash git
+
+WORKDIR /deps
+COPY scripts/build.alpine.deps.sh ./
+RUN bash build.alpine.deps.sh
+
+WORKDIR /workdir
+COPY . .
+RUN if [ -n "$SHA" ]; then sed -i 's/\(v[0-9]\.[0-9]\.[0-9]\)/\1-'"$SHA"'/' src/version.h; fi && \
+    bash scripts/build.alpine.build.sh
+
+# export stage: `--output type=local` writes just the release tree
+FROM scratch
+COPY --from=builder /workdir/subconverter /subconverter
