@@ -63,6 +63,12 @@ void addXHTTPXmuxOptions(YAML::Node &singleproxy, const Proxy &proxy) {
 }
 }
 
+// yaml-cpp emits a scalar starting with ':' unquoted, which no YAML parser accepts inside a
+// flow sequence; the leading zero keeps the address equivalent and makes the scalar plain-safe
+std::string safeYamlAddress(const std::string &address) {
+    return !address.empty() && address.front() == ':' ? "0" + address : address;
+}
+
 bool isNumeric(const std::string &str) {
     for (char c: str) {
         if (!std::isdigit(static_cast<unsigned char>(c))) {
@@ -538,17 +544,20 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 singleproxy["private-key"] = x.PrivateKey;
                 singleproxy["ip"] = x.SelfIP;
                 if (!x.SelfIPv6.empty())
-                    singleproxy["ipv6"] = x.SelfIPv6;
+                    singleproxy["ipv6"] = safeYamlAddress(x.SelfIPv6);
                 if (!x.PreSharedKey.empty())
                     singleproxy["pre-shared-key"] = x.PreSharedKey;
                 if (!x.DnsServers.empty()) {
-                    singleproxy["dns"] = x.DnsServers;
+                    string_array dns_servers;
+                    for (auto &y: x.DnsServers)
+                        dns_servers.emplace_back(safeYamlAddress(y));
+                    singleproxy["dns"] = dns_servers;
                     singleproxy["remote-dns-resolve"] = true; // mihomo ignores dns without this
                 }
                 if (!x.AllowedIPs.empty()) {
                     string_array allowed_ips;
                     for (auto &y: split(x.AllowedIPs, ","))
-                        allowed_ips.emplace_back(trim(y));
+                        allowed_ips.emplace_back(safeYamlAddress(trim(y)));
                     singleproxy["allowed-ips"] = allowed_ips;
                 }
                 if (!x.ClientId.empty()) {
