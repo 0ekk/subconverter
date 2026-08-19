@@ -29,6 +29,7 @@ wireguard://<private-key>@<server>:<port>?<params>#<remark>
 | `keepalive` | `persistent_keepalive` | Persistent keepalive in seconds. |
 | `reserved` | — | Comma separated reserved bytes / client id, e.g. `1,2,3` (used by WARP). |
 | `dns` | — | Comma separated DNS servers. |
+| `version`, `jc`, `jmin`, `jmax`, `s1`–`s4`, `h1`–`h4`, `i1`–`i5`, `j1`–`j3`, `itime` | — | AmneziaWG obfuscation options, passed through to mihomo's `amnezia-wg-option`. |
 
 All values may be URL-encoded; keys almost always need to be, because base64
 padding (`=`) and `+` are not safe in a query string.
@@ -80,3 +81,6 @@ Notes:
   by tag exactly like an outbound.
 - mihomo only uses `dns` when `remote-dns-resolve` is true, so it is set whenever
   the link carries DNS servers.
+- AmneziaWG options are only emitted for Clash/mihomo; no other target supports
+  them. They are also read back from `amnezia-wg-option` in Clash input.
+- Multiple peers per node are not supported; a link describes exactly one peer.

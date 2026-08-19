@@ -378,6 +378,13 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                                 singleproxy["ws-opts"]["headers"]["Edge"] = x.Edge;
                         }
                         break;
+                    case "httpupgrade"_hash: // mihomo has no httpupgrade network, it is a ws option
+                        singleproxy["network"] = "ws";
+                        singleproxy["ws-opts"]["path"] = x.Path;
+                        if (!x.Host.empty())
+                            singleproxy["ws-opts"]["headers"]["Host"] = x.Host;
+                        singleproxy["ws-opts"]["v2ray-http-upgrade"] = true;
+                        break;
                     case "http"_hash:
                         singleproxy["network"] = x.TransferProtocol;
                         singleproxy["http-opts"]["method"] = "GET";
@@ -534,6 +541,16 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 }
                 if (x.KeepAlive > 0)
                     singleproxy["persistent-keepalive"] = x.KeepAlive;
+                for (auto &y: x.AmneziaWG) {
+                    // only these are numbers in mihomo, the rest are hex/string values
+                    static const string_array amnezia_numbers = {"version", "jc", "jmin", "jmax", "s1", "s2", "s3",
+                                                                 "s4", "itime"};
+                    if (std::find(amnezia_numbers.begin(), amnezia_numbers.end(), y.first) != amnezia_numbers.end()) {
+                        singleproxy["amnezia-wg-option"][y.first] = to_int(y.second, 0);
+                    } else {
+                        singleproxy["amnezia-wg-option"][y.first] = y.second;
+                    }
+                }
                 if (x.Mtu > 0)
                     singleproxy["mtu"] = x.Mtu;
                 break;
@@ -724,6 +741,13 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                                 singleproxy["ws-opts"]["v2ray-http-upgrade"] = x.V2rayHttpUpgrade.get();
                             }
                         }
+                        break;
+                    case "httpupgrade"_hash: // mihomo has no httpupgrade network, it is a ws option
+                        singleproxy["network"] = "ws";
+                        singleproxy["ws-opts"]["path"] = x.Path;
+                        if (!x.Host.empty())
+                            singleproxy["ws-opts"]["headers"]["Host"] = x.Host;
+                        singleproxy["ws-opts"]["v2ray-http-upgrade"] = true;
                         break;
                     case "http"_hash:
                         singleproxy["network"] = x.TransferProtocol;
@@ -2602,6 +2626,24 @@ static rapidjson::Value buildSingBoxTransport(const Proxy &proxy, rapidjson::Mem
             transport.AddMember("headers", headers, allocator);
             break;
         }
+        case "h2"_hash: {
+            transport.AddMember("type", "http", allocator); // sing-box carries h2 as the http transport
+            if (!proxy.Host.empty())
+                transport.AddMember("host", rapidjson::StringRef(proxy.Host.c_str()), allocator);
+            transport.AddMember("path", proxy.Path.empty() ? rapidjson::Value("/")
+                                                           : rapidjson::Value(
+                                                                 rapidjson::StringRef(proxy.Path.c_str())), allocator);
+            break;
+        }
+        case "httpupgrade"_hash: {
+            transport.AddMember("type", "httpupgrade", allocator);
+            if (!proxy.Host.empty())
+                transport.AddMember("host", rapidjson::StringRef(proxy.Host.c_str()), allocator);
+            transport.AddMember("path", proxy.Path.empty() ? rapidjson::Value("/")
+                                                           : rapidjson::Value(
+                                                                 rapidjson::StringRef(proxy.Path.c_str())), allocator);
+            break;
+        }
         case "grpc"_hash: {
             transport.AddMember("type", "grpc", allocator);
             if (!proxy.Path.empty())
@@ -2795,7 +2837,13 @@ proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json,
                         addHeaders(vlesstransport, x, allocator);
                         proxy.AddMember("transport", vlesstransport, allocator);
                         break;
-                    case "h2"_hash:
+                    case "h2"_hash: // sing-box carries h2 as the http transport
+                        vlesstransport.AddMember("type", rapidjson::StringRef("http"), allocator);
+                        vlesstransport.AddMember("host", rapidjson::StringRef(x.Host.c_str()), allocator);
+                        vlesstransport.AddMember("path", rapidjson::StringRef(x.Path.c_str()), allocator);
+                        proxy.AddMember("transport", vlesstransport, allocator);
+                        break;
+                    case "httpupgrade"_hash:
                         vlesstransport.AddMember("type", rapidjson::StringRef("httpupgrade"), allocator);
                         vlesstransport.AddMember("host", rapidjson::StringRef(x.Host.c_str()), allocator);
                         vlesstransport.AddMember("path", rapidjson::StringRef(x.Path.c_str()), allocator);

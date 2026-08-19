@@ -1241,6 +1241,7 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes) {
         std::string flow, mode; //trojan
         std::string user; //socks
         std::string ip, ipv6, private_key, public_key, mtu, reserved, allowed_ips, keepalive; //wireguard
+        std::vector<std::pair<std::string, std::string>> amnezia_wg;
         std::string auth, up, down, obfsParam, insecure, alpn; //hysteria
         std::string obfsPassword; //hysteria2
         std::string congestion_control, udp_relay_mode, token; // tuic
@@ -1471,6 +1472,12 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes) {
                     reserved = join(reserved_list, ",");
                 } else
                     singleproxy["reserved"] >>= reserved;
+                if (singleproxy["amnezia-wg-option"].IsMap()) {
+                    for (auto item = singleproxy["amnezia-wg-option"].begin();
+                         item != singleproxy["amnezia-wg-option"].end(); ++item)
+                        amnezia_wg.emplace_back(safe_as<std::string>(item->first),
+                                                safe_as<std::string>(item->second));
+                }
                 if (singleproxy["allowed-ips"].IsSequence()) {
                     string_array allowed_list;
                     singleproxy["allowed-ips"] >>= allowed_list;
@@ -1482,6 +1489,7 @@ void explodeClash(Node yamlnode, std::vector<Proxy> &nodes) {
                                    underlying_proxy);
                 if (!allowed_ips.empty())
                     node.AllowedIPs = allowed_ips;
+                node.AmneziaWG = amnezia_wg;
                 break;
             case "vless"_hash:
                 group = XRAY_DEFAULT_GROUP;
@@ -1900,6 +1908,7 @@ void explodeStdVless(std::string vless, Proxy &node) {
         case "tcp"_hash:
         case "ws"_hash:
         case "h2"_hash:
+        case "httpupgrade"_hash:
             type = getUrlArg(addition, "headerType");
             host = getUrlArg(addition, strFind(addition, "sni") ? "sni" : "host");
             path = getUrlArg(addition, "path");
@@ -3423,6 +3432,15 @@ void explodeWireGuard(std::string wg, Proxy &node) {
 
     wireguardConstruct(node, WG_DEFAULT_GROUP, remarks, add, port, selfIp, selfIpv6, privKey, pubKey, psk, dns, mtu,
                        keepalive, "", reserved, tribool(), "");
+
+    // AmneziaWG obfuscation options, carried in the link and understood by mihomo
+    static const char *amnezia_keys[] = {"version", "jc", "jmin", "jmax", "s1", "s2", "s3", "s4", "h1", "h2", "h3",
+                                         "h4", "i1", "i2", "i3", "i4", "i5", "j1", "j2", "j3", "itime"};
+    for (auto &key: amnezia_keys) {
+        std::string value = urlDecode(getUrlArg(addition, key));
+        if (!value.empty())
+            node.AmneziaWG.emplace_back(key, value);
+    }
 }
 
 void explode(const std::string &link, Proxy &node) {

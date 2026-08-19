@@ -120,6 +120,7 @@ struct Proxy {
     uint16_t KeepAlive = 0;
     String TestUrl;
     String ClientId;
+    std::vector<std::pair<String, String>> AmneziaWG; // amnezia-wg-option, passed through as-is
     String Ports;
     String Auth;
     String Alpn;
