@@ -613,6 +613,9 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 if (!x.PublicKey.empty()) {
                     singleproxy["ca-str"] = x.PublicKey;
                 }
+                if (!x.Fingerprint.empty()) {
+                    singleproxy["fingerprint"] = x.Fingerprint;
+                }
                 if (!x.ServerName.empty()) {
                     singleproxy["sni"] = x.ServerName;
                 }
@@ -1433,6 +1436,9 @@ std::string proxyToSingle(std::vector<Proxy> &nodes, int types, extra_settings &
                 }
                 if (!sni.empty()) {
                     proxyStr += "&sni=" + sni;
+                }
+                if (!x.Fingerprint.empty()) {
+                    proxyStr += "&pinSHA256=" + x.Fingerprint;
                 }
                 proxyStr += "#" + urlEncode(remark);
                 break;
