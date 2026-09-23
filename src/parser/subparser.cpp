@@ -978,16 +978,15 @@ void explodeSocks(std::string link, Proxy &node) {
             link.erase(pos);
         }
         link = urlSafeBase64Decode(link.substr(8));
-        if (strFind(link, "@")) {
-            auto userinfo = split(link, '@');
-            if (userinfo.size() < 2)
+        auto at = link.rfind('@');
+        if (at != std::string::npos) {
+            std::string userinfo = link.substr(0, at);
+            link.erase(0, at + 1);
+            auto colon = userinfo.find(':');
+            if (colon == std::string::npos)
                 return;
-            link = userinfo[1];
-            userinfo = split(userinfo[0], ':');
-            if (userinfo.size() < 2)
-                return;
-            username = userinfo[0];
-            password = userinfo[1];
+            username = userinfo.substr(0, colon);
+            password = userinfo.substr(colon + 1);
         }
         auto arguments = split(link, ':');
         if (arguments.size() < 2)
