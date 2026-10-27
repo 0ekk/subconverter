@@ -39,6 +39,13 @@ const string_array clash_ssr_ciphers = {
 };
 
 namespace {
+// Proxy::Fingerprint holds either a uTLS client fingerprint name or a certificate pin
+bool isUtlsFingerprint(const std::string &fp) {
+    static const string_array utls_fingerprints = {"chrome", "firefox", "edge", "safari", "360", "qq",
+                                                   "ios", "android", "random", "randomized"};
+    return std::find(utls_fingerprints.begin(), utls_fingerprints.end(), fp) != utls_fingerprints.end();
+}
+
 void setXHTTPOption(YAML::Node &opts, const std::string &key, const std::string &value) {
     if (!value.empty())
         opts[key] = value;
@@ -511,6 +518,8 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 }
                 if (!scv.is_undef())
                     singleproxy["skip-cert-verify"] = scv.get();
+                if (isUtlsFingerprint(x.Fingerprint))
+                    singleproxy["client-fingerprint"] = x.Fingerprint;
                 switch (hash_(x.TransferProtocol)) {
                     case "tcp"_hash:
                         break;
@@ -674,9 +683,10 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 if (!x.Password.empty()) {
                     singleproxy["password"] = x.Password;
                 }
-                if (!x.Fingerprint.empty()) {
+                if (isUtlsFingerprint(x.Fingerprint))
+                    singleproxy["client-fingerprint"] = x.Fingerprint;
+                else if (!x.Fingerprint.empty())
                     singleproxy["fingerprint"] = x.Fingerprint;
-                }
                 if (!udp.is_undef()) {
                     singleproxy["udp"] = udp.get();
                 }
@@ -3187,11 +3197,8 @@ proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json,
             }
             tls.AddMember("insecure", buildBooleanValue(scv), allocator);
             if (x.Type == ProxyType::VLESS) {
-                static const string_array utls_fingerprints = {"chrome", "firefox", "edge", "safari", "360", "qq",
-                                                               "ios", "android", "random", "randomized"};
                 bool has_reality = !x.PublicKey.empty() || !x.ShortId.empty();
-                bool known_fingerprint = std::find(utls_fingerprints.begin(), utls_fingerprints.end(),
-                                                   x.Fingerprint) != utls_fingerprints.end();
+                bool known_fingerprint = isUtlsFingerprint(x.Fingerprint);
                 if (has_reality || known_fingerprint) {
                     rapidjson::Value utls(rapidjson::kObjectType);
                     utls.AddMember("enabled", true, allocator);
