@@ -375,7 +375,8 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                         singleproxy["alpn"].push_back(item);
                     }
                 } else if (!x.Alpn.empty())
-                    singleproxy["alpn"].push_back(x.Alpn);
+                    for (auto &item: split(x.Alpn, ","))
+                        singleproxy["alpn"].push_back(item);
                 if (!scv.is_undef())
                     singleproxy["skip-cert-verify"] = scv.get();
                 if (!x.ServerName.empty())
@@ -503,7 +504,8 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                         singleproxy["alpn"].push_back(item);
                     }
                 } else if (!x.Alpn.empty())
-                    singleproxy["alpn"].push_back(x.Alpn);
+                    for (auto &item: split(x.Alpn, ","))
+                        singleproxy["alpn"].push_back(item);
                 if (std::all_of(x.Password.begin(), x.Password.end(), ::isdigit) && !x.Password.empty()) {
                     singleproxy["password"].SetTag("str");
                 }
@@ -602,7 +604,8 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 if (x.Insecure == "1")
                     singleproxy["skip-cert-verify"] = true;
                 if (!x.Alpn.empty())
-                    singleproxy["alpn"].push_back(x.Alpn);
+                    for (auto &item: split(x.Alpn, ","))
+                        singleproxy["alpn"].push_back(item);
                 if (!x.OBFSParam.empty())
                     singleproxy["obfs"] = x.OBFSParam;
                 break;
@@ -626,7 +629,8 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 if (!scv.is_undef())
                     singleproxy["skip-cert-verify"] = scv.get();
                 if (!x.Alpn.empty())
-                    singleproxy["alpn"].push_back(x.Alpn);
+                    for (auto &item: split(x.Alpn, ","))
+                        singleproxy["alpn"].push_back(item);
                 if (!x.OBFSParam.empty())
                     singleproxy["obfs"] = x.OBFSParam;
                 if (!x.OBFSPassword.empty())
@@ -651,7 +655,8 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                 if (!scv.is_undef())
                     singleproxy["skip-cert-verify"] = scv.get();
                 if (!x.Alpn.empty())
-                    singleproxy["alpn"].push_back(x.Alpn);
+                    for (auto &item: split(x.Alpn, ","))
+                        singleproxy["alpn"].push_back(item);
                 singleproxy["disable-sni"] = x.DisableSni.get();
                 singleproxy["reduce-rtt"] = x.ReduceRtt.get();
                 singleproxy["request-timeout"] = x.RequestTimeout;
