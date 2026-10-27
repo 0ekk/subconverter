@@ -1436,7 +1436,7 @@ std::string proxyToSingle(std::vector<Proxy> &nodes, int types, extra_settings &
                 if (!obfsparam.empty()) {
                     proxyStr += "&obfs=" + obfsparam;
                     if (!obfsPassword.empty()) {
-                        proxyStr += "&obfs-password=" + obfsparam;
+                        proxyStr += "&obfs-password=" + obfsPassword;
                     }
                 }
                 if (!sni.empty()) {

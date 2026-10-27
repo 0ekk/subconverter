@@ -1942,7 +1942,7 @@ void explodeStdHysteria2(std::string hysteria2, Proxy &node) {
     }
 
     if (strFind(hysteria2, "@")) {
-        if (regGetMatch(hysteria2, R"(^(.*?)@(.*)[:](\d+)$)", 4, 0, &password, &add, &port))
+        if (regGetMatch(hysteria2, R"(^(.*?)@(.*)[:]([\d,\-]+)$)", 4, 0, &password, &add, &port))
             return;
     } else {
         password = getUrlArg(addition, "password");
@@ -1952,7 +1952,16 @@ void explodeStdHysteria2(std::string hysteria2, Proxy &node) {
         if (!strFind(hysteria2, ":"))
             return;
 
-        if (regGetMatch(hysteria2, R"(^(.*)[:](\d+)$)", 3, 0, &add, &port))
+        if (regGetMatch(hysteria2, R"(^(.*)[:]([\d,\-]+)$)", 3, 0, &add, &port))
+            return;
+    }
+
+    // multi-port authority, e.g. host:443,5000-6000
+    std::string authorityPorts;
+    if (port.find_first_of(",-") != port.npos) {
+        authorityPorts = port;
+        port.erase(port.find_first_of(",-"));
+        if (port.empty())
             return;
     }
 
@@ -1964,7 +1973,11 @@ void explodeStdHysteria2(std::string hysteria2, Proxy &node) {
     obfsPassword = getUrlArg(addition, "obfs-password");
     host = getUrlArg(addition, "sni");
     sni = getUrlArg(addition, "sni");
-    ports = getUrlArg(addition, "ports");
+    ports = urlDecode(getUrlArg(addition, "ports"));
+    if (ports.empty())
+        ports = urlDecode(getUrlArg(addition, "mport"));
+    if (ports.empty())
+        ports = authorityPorts;
     fingerprint = getUrlArg(addition, "pinSHA256");
     if (remarks.empty())
         remarks = add + ":" + port;
