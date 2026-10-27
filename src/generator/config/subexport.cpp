@@ -744,6 +744,7 @@ proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode, const ProxyGroupCo
                     singleproxy["skip-cert-verify"] = scv.get();
                 if (!x.PublicKey.empty()) {
                     singleproxy["reality-opts"]["public-key"] = x.PublicKey;
+                    singleproxy["reality-opts"]["support-x25519mlkem768"] = true;
                 }
                 if (!x.ServerName.empty())
                     singleproxy["servername"] = x.ServerName;
